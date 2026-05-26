@@ -1,130 +1,286 @@
 import express from "express";
-import { PrismaClient } from "../generated/prisma/client.ts";
+import { PrismaClient } from "../generated/prisma";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { authMiddleware } from "./auth.js";
+
 const router = express.Router();
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL,
+});
+
 const prisma = new PrismaClient({ adapter });
 
 router.use(authMiddleware);
 
-// Get current streak and points
+// Get current streak + points
 router.get("/", async (req, res) => {
-  const user = await prisma.user.findUnique({
-    where: { id: req.user.userId },
-    select: { streak: true, points: true, lastCheckedIn: true },
-  });
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: req.user.userId,
+      },
+      select: {
+        streak: true,
+        points: true,
+        lastCheckedIn: true,
+      },
+    });
 
-  res.json(user);
+    res.json(user);
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: "Failed to fetch streak data",
+    });
+  }
 });
 
-// Check in for the day — called when user checks off all exercises
+// Daily workout check-in
 router.post("/checkin", async (req, res) => {
-  const user = await prisma.user.findUnique({
-    where: { id: req.user.userId },
-  });
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: req.user.userId,
+      },
+    });
 
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Find active workout
+    const activeWorkout = await prisma.workout.findFirst({
+      where: {
+        userId: req.user.userId,
+        isActive: true,
+      },
+    });
 
-  // If already checked in today, don't increment
-  if (user.lastCheckedIn) {
-    const lastCheckin = new Date(user.lastCheckedIn);
-    const lastCheckinDay = new Date(
-      lastCheckin.getFullYear(),
-      lastCheckin.getMonth(),
-      lastCheckin.getDate(),
+    if (!activeWorkout) {
+      return res.status(400).json({
+        error: "No active workout",
+      });
+    }
+
+    const now = new Date();
+
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const todayName = now.toLocaleDateString("en-US", {
+      weekday: "long",
+    });
+
+    // Get today's exercises
+    const todaysExercises = await prisma.exercise.findMany({
+      where: {
+        workoutId: activeWorkout.id,
+        day: todayName,
+      },
+    });
+
+    // Rest day if no exercises
+    if (todaysExercises.length === 0) {
+      return res.status(400).json({
+        error: "Today is a rest day",
+      });
+    }
+
+    // Check if all exercises completed
+    const allCompleted = todaysExercises.every(
+      (exercise) => exercise.completed,
     );
 
-    if (lastCheckinDay.getTime() === today.getTime()) {
-      return res.status(400).json({ error: "Already checked in today" });
+    if (!allCompleted) {
+      return res.status(400).json({
+        error: "Complete all exercises first",
+      });
     }
 
-    // If last checkin was more than 1 day ago, reset streak
-    const diffDays = (today - lastCheckinDay) / (1000 * 60 * 60 * 24);
-    if (diffDays > 1) {
-      const updatedUser = await prisma.user.update({
-        where: { id: req.user.userId },
-        data: {
-          streak: 1,
-          lastCheckedIn: now,
-          points: user.points + 110, // streak 1 = 1 * 10 + 100
-        },
-      });
-      return res.json({
-        message: "Streak reset",
-        streak: updatedUser.streak,
-        points: updatedUser.points,
-      });
+    // Prevent double check-in
+    if (user.lastCheckedIn) {
+      const lastCheckin = new Date(user.lastCheckedIn);
+
+      const lastCheckinDay = new Date(
+        lastCheckin.getFullYear(),
+        lastCheckin.getMonth(),
+        lastCheckin.getDate(),
+      );
+
+      if (lastCheckinDay.getTime() === today.getTime()) {
+        return res.status(400).json({
+          error: "Already checked in today",
+        });
+      }
+
+      // Missed a day → reset streak
+      const diffDays = (today - lastCheckinDay) / (1000 * 60 * 60 * 24);
+
+      if (diffDays > 1) {
+        const resetStreak = 1;
+
+        const pointsEarned = resetStreak * 10 + 100;
+
+        const updatedUser = await prisma.user.update({
+          where: {
+            id: req.user.userId,
+          },
+          data: {
+            streak: resetStreak,
+            lastCheckedIn: now,
+            points: user.points + pointsEarned,
+          },
+        });
+
+        // Reset today's exercises
+        await prisma.exercise.updateMany({
+          where: {
+            workoutId: activeWorkout.id,
+            day: todayName,
+          },
+          data: {
+            completed: false,
+          },
+        });
+
+        return res.json({
+          message: "Streak reset and restarted",
+          streak: updatedUser.streak,
+          pointsEarned,
+          totalPoints: updatedUser.points,
+        });
+      }
     }
+
+    // Increment streak normally
+    const newStreak = user.streak + 1;
+
+    const pointsEarned = newStreak * 10 + 100;
+
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: req.user.userId,
+      },
+      data: {
+        streak: newStreak,
+        lastCheckedIn: now,
+        points: user.points + pointsEarned,
+      },
+    });
+
+    // Reset exercises after successful check-in
+    await prisma.exercise.updateMany({
+      where: {
+        workoutId: activeWorkout.id,
+        day: todayName,
+      },
+      data: {
+        completed: false,
+      },
+    });
+
+    res.json({
+      message: "Checked in successfully",
+      streak: updatedUser.streak,
+      pointsEarned,
+      totalPoints: updatedUser.points,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: "Failed to process check-in",
+    });
   }
-
-  // Increment streak
-  const newStreak = user.streak + 1;
-  const pointsEarned = newStreak * 10 + 100;
-
-  const updatedUser = await prisma.user.update({
-    where: { id: req.user.userId },
-    data: {
-      streak: newStreak,
-      lastCheckedIn: now,
-      points: user.points + pointsEarned,
-    },
-  });
-
-  res.json({
-    message: "Checked in successfully",
-    streak: updatedUser.streak,
-    pointsEarned,
-    totalPoints: updatedUser.points,
-  });
 });
 
-// Rest day — doesn't increment streak but doesn't break it either
+// Rest day
 router.post("/restday", async (req, res) => {
-  const user = await prisma.user.findUnique({
-    where: { id: req.user.userId },
-  });
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: req.user.userId,
+      },
+    });
 
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const now = new Date();
 
-  if (user.lastCheckedIn) {
-    const lastCheckin = new Date(user.lastCheckedIn);
-    const lastCheckinDay = new Date(
-      lastCheckin.getFullYear(),
-      lastCheckin.getMonth(),
-      lastCheckin.getDate(),
-    );
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const diffDays = (today - lastCheckinDay) / (1000 * 60 * 60 * 24);
-    if (diffDays > 1) {
-      // missed a day before rest day, reset streak
-      await prisma.user.update({
-        where: { id: req.user.userId },
-        data: { streak: 0, lastCheckedIn: now },
-      });
-      return res.json({ message: "Streak reset due to missed day", streak: 0 });
+    if (user.lastCheckedIn) {
+      const lastCheckin = new Date(user.lastCheckedIn);
+
+      const lastCheckinDay = new Date(
+        lastCheckin.getFullYear(),
+        lastCheckin.getMonth(),
+        lastCheckin.getDate(),
+      );
+
+      const diffDays = (today - lastCheckinDay) / (1000 * 60 * 60 * 24);
+
+      // Missed a day before rest day
+      if (diffDays > 1) {
+        await prisma.user.update({
+          where: {
+            id: req.user.userId,
+          },
+          data: {
+            streak: 0,
+            lastCheckedIn: now,
+          },
+        });
+
+        return res.json({
+          message: "Streak reset due to missed day",
+          streak: 0,
+        });
+      }
     }
+
+    // Keep streak alive without incrementing
+    await prisma.user.update({
+      where: {
+        id: req.user.userId,
+      },
+      data: {
+        lastCheckedIn: now,
+      },
+    });
+
+    res.json({
+      message: "Rest day logged",
+      streak: user.streak,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: "Failed to process rest day",
+    });
   }
-
-  // Just update lastCheckedIn without changing streak or points
-  await prisma.user.update({
-    where: { id: req.user.userId },
-    data: { lastCheckedIn: now },
-  });
-
-  res.json({ message: "Rest day logged", streak: user.streak });
 });
 
-// Reset streak manually
+// Manual reset
 router.post("/reset", async (req, res) => {
-  const updatedUser = await prisma.user.update({
-    where: { id: req.user.userId },
-    data: { streak: 0, lastCheckedIn: null },
-  });
+  try {
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: req.user.userId,
+      },
+      data: {
+        streak: 0,
+        lastCheckedIn: null,
+      },
+    });
 
-  res.json({ message: "Streak reset", streak: updatedUser.streak });
+    res.json({
+      message: "Streak reset",
+      streak: updatedUser.streak,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: "Failed to reset streak",
+    });
+  }
 });
 
 export default router;

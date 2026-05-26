@@ -2,7 +2,6 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import authRouter from "./routes/auth.js";
-import workoutRouter from "./routes/workout.js";
 import exerciseRouter from "./routes/exercise.js";
 import streakRouter from "./routes/streak.js";
 
@@ -16,7 +15,6 @@ app.use(
 );
 
 app.use("/auth", authRouter);
-app.use("/workouts", workoutRouter);
 app.use("/exercises", exerciseRouter);
 app.use("/streak", streakRouter);
 

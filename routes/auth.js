@@ -1,11 +1,12 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import express from "express";
-import { PrismaClient } from "../generated/prisma/client.ts";
+//import { PrismaClient } from "../generated/prisma/client.ts";
+import { PrismaClient } from "../generated/prisma";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const router = express.Router();
-const adapter = new PrismaPg({connectionString: process.env.DATABASE_URL,});
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 router.post("/register", async (req, res) => {
@@ -49,8 +50,28 @@ router.post("/register", async (req, res) => {
       },
     });
 
+    // Auto-create their one workout schedule
+    await prisma.workout.create({
+      data: {
+        name: "My Schedule",
+        isActive: false,
+        user: { connect: { id: user.id } },
+      },
+    });
+
+    // Just give the user a token after register
+    const token = jwt.sign(
+      {
+        userId: user.id,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "1h",
+      },
+    );
+
     res.json({
-      id: user.id,
+      token,
       username: user.username,
       email: user.email,
     });
