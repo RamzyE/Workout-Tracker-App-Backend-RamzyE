@@ -1,9 +1,7 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// Get a free hosted Postgres database in seconds: `npx create-db`
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -12,4 +10,49 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  password      String
+  workouts      Workout[]
+  streak        Int       @default(0)
+  lastCheckedIn DateTime?
+  points        Int       @default(0)
+  badges        Badge[]
+  createdAt     DateTime  @default(now())
+}
+
+model Workout {
+  id         Int        @id @default(autoincrement())
+  name       String
+  user       User       @relation(fields: [userId], references: [id])
+  userId     Int
+  exercises  Exercise[]
+  isActive   Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+}
+
+model Exercise {
+  id        Int      @id @default(autoincrement())
+  name      String
+  sets      Int
+  reps      Int
+  day       String
+  completed Boolean  @default(false)
+  isRestDay Boolean  @default(false)
+  workout   Workout  @relation(fields: [workoutId], references: [id])
+  workoutId Int
+  createdAt DateTime @default(now())
+}
+
+model Badge {
+  id          Int      @id @default(autoincrement())
+  name        String
+  cost        Int
+  imageUrl    String?
+  user        User?    @relation(fields: [userId], references: [id])
+  userId      Int?
+  createdAt   DateTime @default(now())
 }
