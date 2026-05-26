@@ -6,7 +6,9 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^6.9.0",
     "bcrypt": "^6.0.0",
+    "c12": "^4.0.0-beta.5",
     "cors": "^2.8.6",
+    "defu": "^6.1.7",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
@@ -21,7 +23,7 @@
     "tsx": "^4.22.3"
   },
   "scripts": {
-  "dev": "tsx server.js",
-  "start": "node server.js"
-}
+    "dev": "tsx server.js",
+    "start": "node server.js"
+  }
 }
