@@ -1,11 +1,13 @@
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 import express from "express";
-import { PrismaClient } from "@prisma/client";
-import { authMiddleware } from "./auth.js";
+import { PrismaClient } from "../generated/prisma/client.ts";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const prisma = new PrismaClient();
 const router = express.Router();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
-// Registration Feature
 router.post("/register", async (req, res) => {
   const { email, password } = req.body;
 
@@ -15,13 +17,11 @@ router.post("/register", async (req, res) => {
 
   if (existingUser) {
     return res.status(400).json({ error: "Email already registered." });
-    // We send the error if the Email is not unique
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.create({
-    // Save user in the database
     data: {
       email,
       password: hashedPassword,
@@ -31,7 +31,6 @@ router.post("/register", async (req, res) => {
   res.json({ id: user.id, email: user.email });
 });
 
-// Login Feature
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -41,24 +40,20 @@ router.post("/login", async (req, res) => {
 
   if (!user) {
     return res.status(401).json({ error: "User not found" });
-    // Error if they dont exist
   }
 
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) {
     return res.status(401).json({ error: "Invalid password" });
-    // Incorrect Password
   }
 
   const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
     expiresIn: "1h",
-    // Send A token that will last for one hour
   });
 
   res.json({ token });
 });
 
-// Checking Token on Protected Routes
 export const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) {

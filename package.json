@@ -1,16 +1,27 @@
 {
+  "name": "workout-tracker-backend",
+  "type": "module",
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
-    "@prisma/client": "^7.8.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^6.9.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "prisma": "^6.19.3",
+    "pg": "^8.21.0",
+    "prisma": "^6.9.0",
     "react-hook-form": "^7.76.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
-  }
+    "@types/node": "^25.9.1",
+    "nodemon": "^3.1.14",
+    "tsx": "^4.22.3"
+  },
+  "scripts": {
+  "dev": "tsx server.js",
+  "start": "node server.js"
+}
 }

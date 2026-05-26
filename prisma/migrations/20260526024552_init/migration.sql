@@ -44,7 +44,7 @@ CREATE TABLE "Badge" (
     "cost" INTEGER NOT NULL,
     "imageUrl" TEXT,
     "userId" INTEGER,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "boughtAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Badge_pkey" PRIMARY KEY ("id")
 );

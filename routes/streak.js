@@ -1,9 +1,10 @@
 import express from "express";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "../generated/prisma/client.ts";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { authMiddleware } from "./auth.js";
-
-const prisma = new PrismaClient();
 const router = express.Router();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 router.use(authMiddleware);
 
@@ -32,7 +33,7 @@ router.post("/checkin", async (req, res) => {
     const lastCheckinDay = new Date(
       lastCheckin.getFullYear(),
       lastCheckin.getMonth(),
-      lastCheckin.getDate()
+      lastCheckin.getDate(),
     );
 
     if (lastCheckinDay.getTime() === today.getTime()) {
@@ -93,7 +94,7 @@ router.post("/restday", async (req, res) => {
     const lastCheckinDay = new Date(
       lastCheckin.getFullYear(),
       lastCheckin.getMonth(),
-      lastCheckin.getDate()
+      lastCheckin.getDate(),
     );
 
     const diffDays = (today - lastCheckinDay) / (1000 * 60 * 60 * 24);
