@@ -13,11 +13,11 @@ app.use(
     origin: "http://localhost:5173",
   }),
 );
-
+// Use the Routers
 app.use("/auth", authRouter);
 app.use("/exercises", exerciseRouter);
 app.use("/streak", streakRouter);
 
-app.listen(3000, () => {
+app.listen(3000, () => { // Everything is working 
   console.log("Server is running on port 3000");
 });

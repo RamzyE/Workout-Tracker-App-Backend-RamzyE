@@ -1,5 +1,6 @@
+import "dotenv/config" // Loads .env file
 import express from "express";
-import { PrismaClient } from "../generated/prisma";
+import { PrismaClient } from "../generated/prisma/client.js"; // Prsima Schema
 import { PrismaPg } from "@prisma/adapter-pg";
 import { authMiddleware } from "./auth.js";
 
@@ -19,9 +20,7 @@ const getUserWorkout = async (userId) => {
   });
 };
 
-// ==========================
-// GET EXERCISES
-// ==========================
+// Logic responsible for getting the exercises 
 router.get("/", async (req, res) => {
   try {
     const workout = await getUserWorkout(req.user.userId);
@@ -42,13 +41,11 @@ router.get("/", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Failed to fetch exercises" });
+    res.status(500).json({ error: "Failed to obtain exercises" });
   }
 });
 
-// ==========================
-// TOGGLE SCHEDULE ACTIVE
-// ==========================
+// Logic Responsible for activating schedule
 router.put("/activate", async (req, res) => {
   try {
     const workout = await getUserWorkout(req.user.userId);
@@ -67,7 +64,10 @@ router.put("/activate", async (req, res) => {
     if (!isActive) {
       await prisma.user.update({
         where: { id: req.user.userId },
-        data: { streak: 0, lastCheckedIn: null },
+        data: {
+          streak: 0,
+          // Keep the info on when they last checked and set streak to zero so they can't exploit
+        },
       });
     }
 
@@ -78,9 +78,7 @@ router.put("/activate", async (req, res) => {
   }
 });
 
-// ==========================
-// CREATE EXERCISE
-// ==========================
+// Resposible For Creating Exercises
 router.post("/", async (req, res) => {
   try {
     const workout = await getUserWorkout(req.user.userId);
@@ -120,9 +118,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// ==========================
-// UPDATE EXERCISE
-// ==========================
+// Resposible For Updating Exercises
 router.put("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -169,9 +165,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// ==========================
-// TOGGLE COMPLETE
-// ==========================
+// Resposible For Checking if Exercise is toggled to complete
 router.patch("/:id/complete", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -237,12 +231,12 @@ router.patch("/:id/complete", async (req, res) => {
         );
         const diffDays = (todayDate - lastDate) / (1000 * 60 * 60 * 24);
 
-        if (diffDays === 0) return res.json(updatedExercise);
+        if (diffDays === 0) return res.json(updatedExercise); // Deals with exploit
         if (diffDays === 1) newStreak = user.streak + 1;
-        if (diffDays > 1) newStreak = 1;
+        if (diffDays > 1) newStreak = 0;
       }
 
-      const pointsEarned = newStreak * 10 + 100;
+      const pointsEarned = newStreak * 10 + 100; // The equation to getting points
 
       await prisma.user.update({
         where: { id: req.user.userId },
@@ -273,9 +267,7 @@ router.patch("/:id/complete", async (req, res) => {
   }
 });
 
-// ==========================
-// DELETE EXERCISE
-// ==========================
+// Resposible For Delteing Exercises
 router.delete("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);

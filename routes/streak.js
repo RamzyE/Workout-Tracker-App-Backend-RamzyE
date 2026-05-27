@@ -1,5 +1,6 @@
+import "dotenv/config"
 import express from "express";
-import { PrismaClient } from "../generated/prisma";
+import { PrismaClient } from "../generated/prisma/client.js";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { authMiddleware } from "./auth.js";
 
@@ -109,8 +110,8 @@ router.post("/checkin", async (req, res) => {
           error: "Already checked in today",
         });
       }
-
-      // Missed a day → reset streak
+      
+      // If User Misses a day, then reset the streak
       const diffDays = (today - lastCheckinDay) / (1000 * 60 * 60 * 24);
 
       if (diffDays > 1) {

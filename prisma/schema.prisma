@@ -8,6 +8,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Users Personal Information
 model User {
   id            Int        @id @default(autoincrement())
   username      String     @unique @db.VarChar(30)
@@ -21,6 +22,7 @@ model User {
   createdAt     DateTime   @default(now())
 }
 
+// The schedule itself
 model Workout {
   id        Int        @id @default(autoincrement())
   name      String
@@ -31,6 +33,7 @@ model Workout {
   createdAt DateTime   @default(now())
 }
 
+// The individual exercise inside the schedule
 model Exercise {
   id        Int      @id @default(autoincrement())
   name      String
@@ -44,6 +47,7 @@ model Exercise {
   createdAt DateTime @default(now())
 }
 
+// The Badges for the Users acheivments
 model Badge {
   id       Int      @id @default(autoincrement())
   name     String
